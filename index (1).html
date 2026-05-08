@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>CES スタッフ月次評価アプリ</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #18212f;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #6d5efc;
+      --primary-weak: #efeefe;
+      --accent: #0ea5e9;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 10px 24px rgba(31, 41, 55, 0.08);
+      --radius: 18px;
+      --sticky: env(safe-area-inset-top, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+    body { padding-bottom: 98px; }
+    button, input, textarea { font: inherit; }
+    .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: linear-gradient(180deg, #f8f8ff 0%, #f6f7fb 28%, #f6f7fb 100%); }
+
+    .sticky-summary {
+      position: sticky; top: 0; z-index: 40; padding: calc(10px + var(--sticky)) 14px 10px;
+      backdrop-filter: blur(12px); background: rgba(246, 247, 251, 0.88); border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+    .summary-card {
+      border-radius: 20px; background: linear-gradient(135deg, #5f63ff 0%, #8b5cf6 100%); color: #fff;
+      box-shadow: 0 14px 30px rgba(109, 94, 252, 0.28); padding: 14px 16px;
+    }
+    .summary-top, .summary-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .summary-label { font-size: 12px; opacity: .9; }
+    .summary-score { font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: .5px; }
+    .summary-score small { font-size: 14px; font-weight: 600; opacity: .85; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px;
+      background: rgba(255,255,255,.18); font-size: 13px; font-weight: 700; white-space: nowrap;
+    }
+    .status-text { font-size: 13px; opacity: .95; font-weight: 600; }
+    .header-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    .content { padding: 14px; }
+    .section-title { margin: 12px 4px 10px; font-size: 18px; font-weight: 800; }
+    .section-desc { margin: -2px 4px 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .panel, .accordion {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid rgba(229,231,235,.9);
+    }
+    .panel { padding: 14px; margin-bottom: 14px; }
+    .grid { display: grid; gap: 12px; }
+    .grid.two { grid-template-columns: 1fr 1fr; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
+    .text-input, .textarea, .month-input, .mini-input {
+      width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 14px 14px; min-height: 50px; outline: none; transition: .2s;
+    }
+    .text-input:focus, .textarea:focus, .month-input:focus, .mini-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(167, 139, 250, .14); }
+    .textarea { min-height: 120px; resize: vertical; }
+    .readonly-chip {
+      min-height: 50px; display: flex; align-items: center; padding: 0 14px; border-radius: 14px; background: var(--primary-weak); color: #4c1d95; font-weight: 800; border: 1px solid #ddd6fe;
+    }
+    .score-guide { margin: 0 0 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #edf2f7; color: #475569; border-radius: 14px; font-size: 12px; line-height: 1.6; }
+    .accordion { overflow: hidden; margin-bottom: 14px; }
+    .accordion-header {
+      width: 100%; text-align: left; background: #fff; border: 0; padding: 16px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+    }
+    .accordion-icon {
+      width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-weak); color: var(--primary); font-weight: 900; flex: 0 0 auto;
+    }
+    .accordion-title { flex: 1; }
+    .accordion-title strong { display: block; font-size: 15px; }
+    .accordion-title span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .accordion-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .check-chip, .score-chip {
+      display: inline-flex; align-items: center; justify-content: center; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    }
+    .check-chip.done { background: #dcfce7; color: #166534; }
+    .check-chip.todo { background: #fff7ed; color: #9a3412; }
+    .score-chip { background: #f3f4f6; color: #111827; }
+    .accordion-body { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
+    .accordion.closed .accordion-body { display: none; }
+
+    .item-card { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #fff; margin-top: 12px; }
+    .item-head { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .item-title { font-size: 14px; font-weight: 800; line-height: 1.45; }
+    .item-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .item-score-now { font-size: 12px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+    .button-row { display: grid; gap: 8px; }
+    .button-row.two { grid-template-columns: repeat(2, 1fr); }
+    .button-row.four { grid-template-columns: repeat(4, 1fr); }
+    .score-btn {
+      min-height: 48px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--text); font-weight: 800; cursor: pointer; transition: .18s ease; padding: 0 10px;
+    }
+    .score-btn.selected { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 8px 18px rgba(109, 94, 252, .22); transform: translateY(-1px); }
+    .mini-grid { display: grid; grid-template-columns: 1fr 120px; gap: 10px; margin-top: 10px; }
+    .bonus-row {
+      margin-top: 12px; padding: 12px; border-radius: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .checkbox {
+      appearance: none; width: 24px; height: 24px; border-radius: 8px; margin: 0; border: 2px solid #cbd5e1; background: #fff; position: relative; flex: 0 0 auto; cursor: pointer;
+    }
+    .checkbox:checked { background: var(--ok); border-color: var(--ok); }
+    .checkbox:checked::after { content: '✓'; color: #fff; font-weight: 900; position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
+    .bonus-text strong { display: block; font-size: 14px; }
+    .bonus-text span { font-size: 12px; color: var(--muted); line-height: 1.5; display: block; margin-top: 3px; }
+
+    .warning {
+      display: none; margin-bottom: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 14px; padding: 12px 14px; font-size: 13px; font-weight: 700; line-height: 1.5;
+    }
+    .warning.show { display: block; }
+    .success {
+      display: none; margin-bottom: 12px; background: #ecfeff; color: #155e75; border: 1px solid #a5f3fc; border-radius: 14px; padding: 12px 14px; font-size: 13px; font-weight: 700; line-height: 1.6;
+    }
+    .success.show { display: block; }
+    .hidden { display: none !important; }
+
+    .result-card {
+      background: #fff; border-radius: 20px; box-shadow: var(--shadow); padding: 16px; border: 1px solid rgba(229,231,235,.9); margin-bottom: 14px;
+    }
+    .result-hero {
+      background: linear-gradient(135deg, #111827 0%, #4f46e5 100%); color: #fff; border-radius: 18px; padding: 18px; margin-bottom: 14px;
+    }
+    .result-hero h2 { margin: 0 0 8px; font-size: 22px; }
+    .result-hero p { margin: 0; font-size: 13px; opacity: .92; line-height: 1.6; }
+    .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kv { border-radius: 16px; padding: 12px; background: #f8fafc; border: 1px solid #eef2f7; }
+    .kv small { display: block; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+    .kv strong { display: block; font-size: 17px; }
+    .category-score-list { display: grid; gap: 10px; margin-top: 12px; }
+    .category-score-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #f8fafc; border: 1px solid #edf2f7; font-weight: 800;
+    }
+    .comment-box { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; line-height: 1.7; white-space: pre-wrap; min-height: 90px; }
+    .compare-good { color: var(--ok); }
+    .compare-flat { color: #475569; }
+    .compare-bad { color: var(--danger); }
+    .detail-section { margin-top: 12px; }
+    .detail-section h4 { margin: 0 0 8px; font-size: 15px; }
+    .detail-list { display: grid; gap: 8px; }
+    .detail-item {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid #edf2f7;
+    }
+    .detail-label { flex: 1; line-height: 1.55; font-size: 13px; }
+    .detail-score { font-weight: 800; color: var(--primary); white-space: nowrap; }
+    .confirm-note {
+      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 16px; padding: 14px; line-height: 1.7; font-size: 13px; margin-bottom: 14px;
+    }
+
+    .footer-actions {
+      position: sticky; bottom: 0; z-index: 35; background: linear-gradient(180deg, rgba(246,247,251,0) 0%, rgba(246,247,251,.95) 30%, rgba(246,247,251,1) 100%); padding: 14px;
+    }
+    .footer-actions .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .primary-btn, .ghost-btn, .secondary-btn {
+      border: 0; border-radius: 14px; min-height: 48px; padding: 0 16px; font-weight: 700; cursor: pointer;
+    }
+    .primary-btn { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(109, 94, 252, 0.24); }
+    .ghost-btn { background: rgba(255,255,255,.16); color: #fff; }
+    .secondary-btn { background: #111827; color: #fff; }
+    .outline-btn {
+      border: 1px solid var(--line); background: #fff; color: #111827; border-radius: 14px; min-height: 48px; padding: 0 16px; font-weight: 700; cursor: pointer;
+    }
+
+    .pdf-pages {
+      position: absolute; left: -99999px; top: 0; width: 794px; opacity: 1; pointer-events: none;
+    }
+    .pdf-page {
+      width: 794px; min-height: 1123px; background: #fff; color: #111827; padding: 42px 44px; page-break-after: always; border: 1px solid #e5e7eb;
+    }
+    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; }
+    .pdf-title { font-size: 28px; font-weight: 800; margin: 0 0 4px; }
+    .pdf-sub { font-size: 12px; color: #6b7280; }
+    .pdf-rank-box {
+      min-width: 180px; text-align: center; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 18px; padding: 14px 16px;
+    }
+    .pdf-rank-box .score { font-size: 30px; font-weight: 800; }
+    .pdf-rank-box .rank { font-size: 18px; font-weight: 800; margin-top: 3px; }
+    .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .pdf-info { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+    .pdf-info .label { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 4px; }
+    .pdf-info .value { font-size: 14px; font-weight: 700; line-height: 1.4; white-space: pre-wrap; }
+    .pdf-section-title { font-size: 15px; font-weight: 800; margin: 16px 0 8px; }
+    .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .pdf-table th, .pdf-table td { border: 1px solid #dbe2ea; padding: 8px 10px; font-size: 12px; vertical-align: top; line-height: 1.5; }
+    .pdf-table th { background: #f8fafc; text-align: left; }
+    .pdf-note-box { background: #fafafa; border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; min-height: 120px; white-space: pre-wrap; line-height: 1.65; font-size: 12px; }
+    .pdf-footer { margin-top: 18px; font-size: 10px; color: #64748b; text-align: right; }
+
+    @media (max-width: 360px) {
+      .button-row.four { grid-template-columns: repeat(2, 1fr); }
+      .grid.two, .kv-grid, .footer-actions .row { grid-template-columns: 1fr; }
+      .mini-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="sticky-summary">
+      <div class="summary-card">
+        <div class="summary-top">
+          <div>
+            <div class="summary-label">現在の合計点</div>
+            <div class="summary-score"><span id="totalScore">0</span><small> / 57点</small></div>
+          </div>
+          <div class="pill" id="currentRankPill">D / 指導対象</div>
+        </div>
+        <div class="summary-bottom" style="margin-top:10px;">
+          <div class="status-text" id="currentStateText">状態: 指導対象</div>
+          <div class="pill" id="completionPill">入力完了 0%</div>
+        </div>
+        <div class="header-actions">
+          <button class="ghost-btn" id="goEntryTop">入力へ戻る</button>
+          <button class="ghost-btn" id="goConfirmTop">確認画面へ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <section id="screen-entry">
+        <h1 class="section-title">CES スタッフ月次評価</h1>
+        <p class="section-desc">スマホ入力に最適化した評価フォームです。入力中に合計点・評価ランク・状態が自動更新されます。入力完了後は確認画面からPDFを作成できます。</p>
+
+        <div class="panel">
+          <div class="grid two">
+            <div class="field">
+              <label>評価月</label>
+              <input type="month" class="month-input" id="evalMonth" />
+            </div>
+            <div class="field">
+              <label>店舗名</label>
+              <input type="text" class="text-input" id="storeName" placeholder="例: 北国分店" />
+            </div>
+            <div class="field">
+              <label>スタッフ名</label>
+              <input type="text" class="text-input" id="staffName" placeholder="例: 倉持" />
+            </div>
+            <div class="field">
+              <label>前回評価</label>
+              <div class="readonly-chip" id="previousRankReadonly">未入力可</div>
+            </div>
+          </div>
+
+          <div class="button-row" style="grid-template-columns: repeat(6, 1fr); margin-top:10px;">
+            <button class="score-btn" data-prev-rank="SS">SS</button>
+            <button class="score-btn" data-prev-rank="S">S</button>
+            <button class="score-btn" data-prev-rank="A">A</button>
+            <button class="score-btn" data-prev-rank="B">B</button>
+            <button class="score-btn" data-prev-rank="C">C</button>
+            <button class="score-btn" data-prev-rank="D">D</button>
+          </div>
+
+          <div class="grid two" style="margin-top:10px;">
+            <div class="field">
+              <label>前回合計点（任意）</label>
+              <input type="number" class="text-input" id="previousScore" placeholder="例: 34" min="0" max="57" />
+            </div>
+            <div class="field">
+              <label>今回評価</label>
+              <div class="readonly-chip" id="currentRankReadonly">D / 指導対象</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="score-guide">採点ルール: Aは 0 / 1 点。B〜Eは 0〜3 点。Bカテゴリーには追加加点5点があります。Aカテゴリーはすべて自由記述欄付きです。</div>
+
+        <div id="categoryContainer"></div>
+
+        <div class="panel">
+          <div class="field">
+            <label>自由コメント</label>
+            <textarea class="textarea" id="freeComment" placeholder="今月の振り返り、良かった点、来月への課題などを入力してください"></textarea>
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>次月の課題</label>
+            <textarea class="textarea" id="nextTask" placeholder="次月に重点的に取り組む内容を入力してください"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-confirm" class="hidden">
+        <div class="confirm-note">
+          入力内容を確認し、「PDFを作成する」ボタンを押してください。<br />
+          作成されたPDFをLINE WORKSで本部へ送付してください。
+        </div>
+
+        <div class="warning" id="warningBox"></div>
+        <div class="success" id="successBox"></div>
+
+        <div class="result-card">
+          <div class="result-hero">
+            <h2 id="resultStaff">スタッフ未入力</h2>
+            <p id="resultSummaryText">評価月・店舗名・合計点・評価ランクがここに表示されます。</p>
+          </div>
+          <div class="kv-grid">
+            <div class="kv"><small>評価月</small><strong id="resultMonth">-</strong></div>
+            <div class="kv"><small>店舗名</small><strong id="resultStore">-</strong></div>
+            <div class="kv"><small>合計点</small><strong id="resultTotal">0点</strong></div>
+            <div class="kv"><small>評価ランク</small><strong id="resultRank">D</strong></div>
+            <div class="kv"><small>評価状態</small><strong id="resultState">指導対象</strong></div>
+            <div class="kv"><small>前回比較</small><strong id="resultCompare">-</strong></div>
+          </div>
+        </div>
+
+        <div class="result-card">
+          <h3 style="margin:0 0 10px;">カテゴリー別点数</h3>
+          <div class="category-score-list" id="categoryScoreList"></div>
+        </div>
+
+        <div class="result-card">
+          <h3 style="margin:0 0 10px;">各評価項目の入力結果</h3>
+          <div id="detailContainer"></div>
+        </div>
+
+        <div class="result-card">
+          <h3 style="margin:0 0 10px;">自由コメント</h3>
+          <div class="comment-box" id="resultComment">コメント未入力</div>
+          <h3 style="margin:14px 0 10px;">次月の課題</h3>
+          <div class="comment-box" id="resultNextTask">未入力</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer-actions">
+      <div class="row" id="entryActions">
+        <button class="outline-btn" id="clearBtn">入力クリア</button>
+        <button class="primary-btn" id="reviewBtnBottom">入力内容確認へ</button>
+      </div>
+      <div class="row hidden" id="confirmActions">
+        <button class="outline-btn" id="backBtn">入力へ戻る</button>
+        <button class="primary-btn" id="createPdfBtn">PDFを作成する</button>
+      </div>
+      <div class="row hidden" id="shareActions" style="margin-top:10px;">
+        <button class="outline-btn" id="downloadPdfBtn">PDFを保存する</button>
+        <button class="secondary-btn" id="sharePdfBtn">PDFを共有する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pdf-pages" id="pdfPages"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script>
+    const categories = [
+      {
+        id: 'A', icon: 'A', title: '新しい知識のインプット', type: 'binary', max: 10,
+        helper: '0: していない / 1: した',
+        items: [
+          { id: 'A1', label: '自由入力項目', customLabel: true },
+          { id: 'A2', label: '自由入力項目', customLabel: true },
+          { id: 'A3', label: '自由入力項目', customLabel: true },
+          { id: 'A4', label: '自由入力項目', customLabel: true },
+          { id: 'A5', label: '自由入力項目', customLabel: true },
+          { id: 'A6', label: '自由入力項目', customLabel: true },
+          { id: 'A7', label: '自由入力項目', customLabel: true },
+          { id: 'A8', label: '自由入力項目', customLabel: true },
+          { id: 'A9', label: '自由入力項目', customLabel: true },
+          { id: 'A10', label: '自由入力項目', customLabel: true },
+        ]
+      },
+      {
+        id: 'B', icon: 'B', title: 'アウトプット・言語化・共有', type: 'scale', max: 14,
+        helper: '0: していない・できない / 1: 半分以下 / 2: 半分以上 / 3: ほぼ完全',
+        items: [
+          { id: 'B1', label: '学習レポートまたは業務改善案をBOへ提出した' },
+          { id: 'B2', label: '学習レポートまたは業務改善案をスタッフへ共有・公開した' },
+          { id: 'B3', label: 'レポートを元に実務ツールを作成した' },
+        ],
+        bonus: { id: 'B_bonus', label: '出雲・自社製品に関する内容が含まれている', score: 5 }
+      },
+      {
+        id: 'C', icon: 'C', title: 'お客様対応のための必須スキル', type: 'scale', max: 12,
+        helper: '各項目 0〜3 点',
+        items: [
+          { id: 'C1', label: '衛生管理チェック' },
+          { id: 'C2', label: '接客・所作チェック' },
+          { id: 'C3', label: '習得技術の遵守' },
+          { id: 'C4', label: '運営方針理解' },
+        ]
+      },
+      {
+        id: 'D', icon: 'D', title: '運営行動実績', type: 'scale', max: 12,
+        helper: '各項目 0〜3 点',
+        items: [
+          { id: 'D1', label: 'ルール違反をしていない' },
+          { id: 'D2', label: '接客クレーム無し' },
+          { id: 'D3', label: '記録・入力漏れ無し' },
+          { id: 'D4', label: '指示実行漏れなし' },
+        ]
+      },
+      {
+        id: 'E', icon: 'E', title: '業務姿勢', type: 'scale', max: 9,
+        helper: '各項目 0〜3 点',
+        items: [
+          { id: 'E1', label: '挨拶態度' },
+          { id: 'E2', label: '報連相' },
+          { id: 'E3', label: 'チーム協力' },
+        ]
+      }
+    ];
+
+    const rankRules = [
+      { min: 51, max: 57, rank: 'SS', state: 'ブランド体現開拓者' },
+      { min: 46, max: 50, rank: 'S', state: 'ブランド理解' },
+      { min: 41, max: 45, rank: 'A', state: '安定・信頼' },
+      { min: 36, max: 40, rank: 'B', state: '標準' },
+      { min: 21, max: 35, rank: 'C', state: '要改善' },
+      { min: 0, max: 20, rank: 'D', state: '指導対象' },
+    ];
+
+    const state = {
+      meta: { evalMonth: '', storeName: '', staffName: '', previousRank: '', previousScore: '', freeComment: '', nextTask: '' },
+      scores: {},
+      customLabels: {},
+      bonus: false,
+      pdfBlob: null,
+      pdfFileName: ''
+    };
+
+    const els = {};
+
+    function init() {
+      bindEls();
+      setDefaultMonth();
+      renderCategories();
+      bindBaseEvents();
+      updateAll();
+      switchScreen('entry');
+    }
+
+    function bindEls() {
+      [
+        'evalMonth','storeName','staffName','previousScore','freeComment','nextTask','warningBox','successBox',
+        'totalScore','currentRankPill','currentStateText','currentRankReadonly','completionPill','categoryContainer',
+        'resultStaff','resultSummaryText','resultMonth','resultStore','resultTotal','resultRank','resultState','resultCompare',
+        'resultComment','resultNextTask','categoryScoreList','detailContainer','pdfPages','previousRankReadonly'
+      ].forEach(id => els[id] = document.getElementById(id));
+    }
+
+    function setDefaultMonth() {
+      const now = new Date();
+      const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      els.evalMonth.value = month;
+      state.meta.evalMonth = month;
+    }
+
+    function renderCategories() {
+      els.categoryContainer.innerHTML = categories.map((cat, idx) => `
+        <div class="accordion ${idx === 0 ? '' : 'closed'}" data-accordion="${cat.id}">
+          <button class="accordion-header" type="button" data-toggle="${cat.id}">
+            <div class="accordion-icon">${cat.icon}</div>
+            <div class="accordion-title">
+              <strong>${cat.title}</strong>
+              <span>${cat.helper} / 最大 ${cat.max} 点</span>
+            </div>
+            <div class="accordion-meta">
+              <span class="check-chip todo" id="complete-${cat.id}">未完了</span>
+              <span class="score-chip" id="score-${cat.id}">0 / ${cat.max}</span>
+            </div>
+          </button>
+          <div class="accordion-body">
+            ${cat.items.map((item, index) => renderItem(cat, item, index)).join('')}
+            ${cat.bonus ? renderBonus(cat) : ''}
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('[data-toggle]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelector(`[data-accordion="${btn.dataset.toggle}"]`).classList.toggle('closed');
+        });
+      });
+      document.querySelectorAll('[data-score-btn]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const { itemId, score } = btn.dataset;
+          state.scores[itemId] = Number(score);
+          updateAll();
+        });
+      });
+      document.querySelectorAll('[data-custom-label]').forEach(input => {
+        input.addEventListener('input', () => {
+          state.customLabels[input.dataset.customLabel] = input.value;
+          updateAll();
+        });
+      });
+      document.querySelectorAll('[data-bonus]').forEach(chk => {
+        chk.addEventListener('change', () => {
+          state.bonus = chk.checked;
+          updateAll();
+        });
+      });
+    }
+
+    function renderItem(cat, item, index) {
+      const buttons = cat.type === 'binary' ? [0,1] : [0,1,2,3];
+      const gridClass = cat.type === 'binary' ? 'two' : 'four';
+      const labelField = item.customLabel ? `
+        <div class="mini-grid">
+          <input class="mini-input" type="text" data-custom-label="${item.id}" placeholder="学習内容を入力" />
+          <div class="readonly-chip" style="min-height:46px; justify-content:center;">No.${index+1}</div>
+        </div>
+      ` : '';
+      return `
+        <div class="item-card" id="item-card-${item.id}">
+          <div class="item-head">
+            <div>
+              <div class="item-title">${index + 1}. ${item.label}</div>
+              ${item.customLabel ? '<div class="item-sub">学習した内容を自由記述で入力できます</div>' : ''}
+            </div>
+            <div class="item-score-now" id="item-score-${item.id}">未選択</div>
+          </div>
+          ${labelField}
+          <div class="button-row ${gridClass}" style="margin-top:${item.customLabel ? '10px' : '0'};">
+            ${buttons.map(score => `<button type="button" class="score-btn" data-score-btn data-item-id="${item.id}" data-score="${score}">${score}</button>`).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBonus(cat) {
+      return `
+        <div class="bonus-row">
+          <input id="${cat.bonus.id}" class="checkbox" type="checkbox" data-bonus />
+          <label class="bonus-text" for="${cat.bonus.id}">
+            <strong>追加加点 +${cat.bonus.score}点</strong>
+            <span>${cat.bonus.label}</span>
+          </label>
+        </div>
+      `;
+    }
+
+    function bindBaseEvents() {
+      ['evalMonth','storeName','staffName','previousScore','freeComment','nextTask'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+          state.meta[id] = document.getElementById(id).value;
+          updateAll();
+        });
+      });
+
+      document.querySelectorAll('[data-prev-rank]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.meta.previousRank = btn.dataset.prevRank;
+          document.querySelectorAll('[data-prev-rank]').forEach(b => b.classList.toggle('selected', b === btn));
+          els.previousRankReadonly.textContent = btn.dataset.prevRank;
+          updateAll();
+        });
+      });
+
+      document.getElementById('reviewBtnBottom').addEventListener('click', handleReview);
+      document.getElementById('backBtn').addEventListener('click', () => switchScreen('entry'));
+      document.getElementById('goEntryTop').addEventListener('click', () => switchScreen('entry'));
+      document.getElementById('goConfirmTop').addEventListener('click', handleReview);
+      document.getElementById('createPdfBtn').addEventListener('click', createPdfAndPrepareShare);
+      document.getElementById('downloadPdfBtn').addEventListener('click', downloadPdf);
+      document.getElementById('sharePdfBtn').addEventListener('click', sharePdf);
+      document.getElementById('clearBtn').addEventListener('click', clearForm);
+    }
+
+    function clearForm() {
+      if (!confirm('入力内容をクリアします。よろしいですか？')) return;
+      state.meta = { evalMonth: '', storeName: '', staffName: '', previousRank: '', previousScore: '', freeComment: '', nextTask: '' };
+      state.scores = {};
+      state.customLabels = {};
+      state.bonus = false;
+      state.pdfBlob = null;
+      state.pdfFileName = '';
+      document.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(el => el.value = '');
+      document.querySelectorAll('[data-custom-label]').forEach(el => el.value = '');
+      document.querySelectorAll('[data-score-btn]').forEach(btn => btn.classList.remove('selected'));
+      document.querySelectorAll('[data-prev-rank]').forEach(btn => btn.classList.remove('selected'));
+      const bonus = document.querySelector('[data-bonus]');
+      if (bonus) bonus.checked = false;
+      els.previousRankReadonly.textContent = '未入力可';
+      setDefaultMonth();
+      updateAll();
+      switchScreen('entry');
+      hideMessages();
+    }
+
+    function switchScreen(screen) {
+      document.getElementById('screen-entry').classList.toggle('hidden', screen !== 'entry');
+      document.getElementById('screen-confirm').classList.toggle('hidden', screen !== 'confirm');
+      document.getElementById('entryActions').classList.toggle('hidden', screen !== 'entry');
+      document.getElementById('confirmActions').classList.toggle('hidden', screen !== 'confirm');
+      document.getElementById('shareActions').classList.toggle('hidden', screen !== 'confirm' || !state.pdfBlob);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function calcCategoryScore(cat) {
+      let sum = cat.items.reduce((acc, item) => acc + (Number(state.scores[item.id]) || 0), 0);
+      if (cat.bonus && state.bonus) sum += cat.bonus.score;
+      return sum;
+    }
+
+    function getRank(total) {
+      return rankRules.find(r => total >= r.min && total <= r.max) || rankRules[rankRules.length - 1];
+    }
+
+    function categoryCompletion(cat) {
+      const allAnswered = cat.items.every(item => state.scores[item.id] !== undefined);
+      if (!allAnswered) return false;
+      const customOnes = cat.items.filter(i => i.customLabel);
+      const missingLabelForPositive = customOnes.some(item => Number(state.scores[item.id]) === 1 && !(state.customLabels[item.id] || '').trim());
+      return !missingLabelForPositive;
+    }
+
+    function getRequiredMissing() {
+      const missing = [];
+      if (!els.evalMonth.value) missing.push('評価月');
+      if (!els.storeName.value.trim()) missing.push('店舗名');
+      if (!els.staffName.value.trim()) missing.push('スタッフ名');
+      categories.forEach(cat => {
+        cat.items.forEach(item => {
+          if (state.scores[item.id] === undefined) missing.push(`${cat.id}-${item.id}`);
+          if (item.customLabel && Number(state.scores[item.id]) === 1 && !(state.customLabels[item.id] || '').trim()) {
+            missing.push(`${cat.id}-${item.id}-内容`);
+          }
+        });
+      });
+      return missing;
+    }
+
+    function updateAll() {
+      state.meta.evalMonth = els.evalMonth.value;
+      state.meta.storeName = els.storeName.value;
+      state.meta.staffName = els.staffName.value;
+      state.meta.previousScore = els.previousScore.value;
+      state.meta.freeComment = els.freeComment.value;
+      state.meta.nextTask = els.nextTask.value;
+
+      const totals = categories.map(cat => ({ id: cat.id, title: cat.title, score: calcCategoryScore(cat), max: cat.max, done: categoryCompletion(cat) }));
+      const total = totals.reduce((a,c) => a + c.score, 0);
+      const rankInfo = getRank(total);
+      const answeredCount = Object.keys(state.scores).length;
+      const totalItems = categories.reduce((acc, cat) => acc + cat.items.length, 0);
+      const completion = Math.round((answeredCount / totalItems) * 100);
+
+      els.totalScore.textContent = total;
+      els.currentRankPill.textContent = `${rankInfo.rank} / ${rankInfo.state}`;
+      els.currentStateText.textContent = `状態: ${rankInfo.state}`;
+      els.currentRankReadonly.textContent = `${rankInfo.rank} / ${rankInfo.state}`;
+      els.completionPill.textContent = `入力完了 ${completion}%`;
+
+      totals.forEach(t => {
+        const scoreEl = document.getElementById(`score-${t.id}`);
+        const completeEl = document.getElementById(`complete-${t.id}`);
+        if (scoreEl) scoreEl.textContent = `${t.score} / ${t.max}`;
+        if (completeEl) {
+          completeEl.textContent = t.done ? '✓ 入力済み' : '未完了';
+          completeEl.className = `check-chip ${t.done ? 'done' : 'todo'}`;
+        }
+      });
+
+      categories.forEach(cat => cat.items.forEach(item => {
+        const text = document.getElementById(`item-score-${item.id}`);
+        if (text) text.textContent = state.scores[item.id] !== undefined ? `${state.scores[item.id]}点` : '未選択';
+      }));
+      document.querySelectorAll('[data-score-btn]').forEach(btn => {
+        btn.classList.toggle('selected', Number(btn.dataset.score) === state.scores[btn.dataset.itemId]);
+      });
+
+      renderConfirm(totals, total, rankInfo);
+    }
+
+    function renderConfirm(totals, total, rankInfo) {
+      els.resultStaff.textContent = state.meta.staffName || 'スタッフ未入力';
+      els.resultSummaryText.textContent = `${formatMonth(state.meta.evalMonth) || '-'} / ${state.meta.storeName || '-'} / 合計 ${total}点 / ${rankInfo.rank} ${rankInfo.state}`;
+      els.resultMonth.textContent = formatMonth(state.meta.evalMonth) || '-';
+      els.resultStore.textContent = state.meta.storeName || '-';
+      els.resultTotal.textContent = `${total}点`;
+      els.resultRank.textContent = rankInfo.rank;
+      els.resultState.textContent = rankInfo.state;
+      els.resultComment.textContent = state.meta.freeComment?.trim() || 'コメント未入力';
+      els.resultNextTask.textContent = state.meta.nextTask?.trim() || '未入力';
+      els.resultCompare.innerHTML = buildCompareText(total, rankInfo.rank);
+      els.categoryScoreList.innerHTML = totals.map(t => `<div class="category-score-item"><span>${t.id}. ${t.title}</span><span>${t.score} / ${t.max}</span></div>`).join('');
+      els.detailContainer.innerHTML = categories.map(cat => `
+        <div class="detail-section">
+          <h4>${cat.id}. ${cat.title}</h4>
+          <div class="detail-list">
+            ${cat.items.map((item, idx) => {
+              const label = item.customLabel ? (state.customLabels[item.id]?.trim() || `自由入力項目 ${idx + 1}`) : item.label;
+              return `<div class="detail-item"><div class="detail-label">${escapeHtml(label)}</div><div class="detail-score">${state.scores[item.id] ?? '-'}点</div></div>`;
+            }).join('')}
+            ${cat.bonus ? `<div class="detail-item"><div class="detail-label">追加加点: ${escapeHtml(cat.bonus.label)}</div><div class="detail-score">${state.bonus ? cat.bonus.score : 0}点</div></div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function buildCompareText(currentTotal, currentRank) {
+      const prevScoreValue = Number(state.meta.previousScore);
+      const prevRank = state.meta.previousRank;
+      if (!prevRank && !state.meta.previousScore) return '前回データ未入力';
+      let parts = [];
+      if (prevRank) {
+        const diff = rankDelta(prevRank, currentRank);
+        const cls = diff > 0 ? 'compare-good' : diff < 0 ? 'compare-bad' : 'compare-flat';
+        const txt = diff > 0 ? `ランク上昇 (${prevRank} → ${currentRank})` : diff < 0 ? `ランク下降 (${prevRank} → ${currentRank})` : `ランク維持 (${currentRank})`;
+        parts.push(`<span class="${cls}">${txt}</span>`);
+      }
+      if (!Number.isNaN(prevScoreValue)) {
+        const scoreDiff = currentTotal - prevScoreValue;
+        const cls = scoreDiff > 0 ? 'compare-good' : scoreDiff < 0 ? 'compare-bad' : 'compare-flat';
+        const txt = scoreDiff > 0 ? `+${scoreDiff}点` : `${scoreDiff}点`;
+        parts.push(`<span class="${cls}">点数差 ${txt}</span>`);
+      }
+      return parts.join(' / ');
+    }
+
+    function rankDelta(prev, curr) {
+      const order = ['D','C','B','A','S','SS'];
+      return order.indexOf(curr) - order.indexOf(prev);
+    }
+
+    function handleReview() {
+      hideMessages();
+      const missing = getRequiredMissing();
+      if (missing.length) {
+        els.warningBox.classList.add('show');
+        els.warningBox.textContent = `未入力または未選択の項目があります。入力内容を確認してください。未完了件数: ${missing.length}`;
+      }
+      switchScreen('confirm');
+    }
+
+    function hideMessages() {
+      els.warningBox.classList.remove('show');
+      els.successBox.classList.remove('show');
+      els.warningBox.textContent = '';
+      els.successBox.textContent = '';
+    }
+
+    function formatMonth(value) {
+      if (!value) return '';
+      const [y, m] = value.split('-');
+      return `${Number(y)}年${Number(m)}月`;
+    }
+
+    function formatDate(date = new Date()) {
+      return `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日`;
+    }
+
+    function getFileName() {
+      const store = sanitizeFileName(state.meta.storeName || '店舗名未設定');
+      const staff = sanitizeFileName(state.meta.staffName || 'スタッフ名未設定');
+      const month = sanitizeFileName(formatMonth(state.meta.evalMonth) || '評価月未設定');
+      return `CESスキル評価_${store}_${staff}_${month}.pdf`;
+    }
+
+    function sanitizeFileName(value) {
+      return String(value).replace(/[\\/:*?"<>|]/g, '_').trim() || '未設定';
+    }
+
+    function buildPdfHtml() {
+      const total = categories.reduce((acc, cat) => acc + calcCategoryScore(cat), 0);
+      const rankInfo = getRank(total);
+      const categoryScores = categories.map(cat => ({ id: cat.id, title: cat.title, score: calcCategoryScore(cat), max: cat.max }));
+      const page1Cats = ['A','B','C'];
+      const page2Cats = ['D','E'];
+      const infoGrid = `
+        <div class="pdf-grid">
+          <div class="pdf-info"><div class="label">評価月</div><div class="value">${escapeHtml(formatMonth(state.meta.evalMonth) || '-')}</div></div>
+          <div class="pdf-info"><div class="label">店舗名</div><div class="value">${escapeHtml(state.meta.storeName || '-')}</div></div>
+          <div class="pdf-info"><div class="label">スタッフ名</div><div class="value">${escapeHtml(state.meta.staffName || '-')}</div></div>
+          <div class="pdf-info"><div class="label">評価者名</div><div class="value">不要設定</div></div>
+          <div class="pdf-info"><div class="label">作成日</div><div class="value">${escapeHtml(formatDate())}</div></div>
+          <div class="pdf-info"><div class="label">前回比較</div><div class="value">${stripHtml(buildCompareText(total, rankInfo.rank))}</div></div>
+        </div>`;
+      const scoreTable = `
+        <div class="pdf-section-title">カテゴリー別点数</div>
+        <table class="pdf-table">
+          <thead><tr><th style="width:20%;">カテゴリー</th><th>名称</th><th style="width:18%;">点数</th></tr></thead>
+          <tbody>
+            ${categoryScores.map(cat => `<tr><td>${cat.id}</td><td>${escapeHtml(cat.title)}</td><td>${cat.score} / ${cat.max}</td></tr>`).join('')}
+          </tbody>
+        </table>`;
+
+      const renderCatTable = (catIds) => catIds.map(catId => {
+        const cat = categories.find(c => c.id === catId);
+        return `
+          <div class="pdf-section-title">${cat.id}. ${escapeHtml(cat.title)}</div>
+          <table class="pdf-table">
+            <thead><tr><th style="width:9%;">No</th><th>入力内容</th><th style="width:16%;">点数</th></tr></thead>
+            <tbody>
+              ${cat.items.map((item, idx) => {
+                const label = item.customLabel ? (state.customLabels[item.id]?.trim() || `自由入力項目 ${idx + 1}`) : item.label;
+                return `<tr><td>${idx + 1}</td><td>${escapeHtml(label)}</td><td>${state.scores[item.id] ?? '-'}</td></tr>`;
+              }).join('')}
+              ${cat.bonus ? `<tr><td>+加点</td><td>${escapeHtml(cat.bonus.label)}</td><td>${state.bonus ? cat.bonus.score : 0}</td></tr>` : ''}
+            </tbody>
+          </table>`;
+      }).join('');
+
+      return `
+        <div class="pdf-page">
+          <div class="pdf-header">
+            <div>
+              <div class="pdf-title">CESスキル評価シート</div>
+              <div class="pdf-sub">社内提出用評価シート</div>
+            </div>
+            <div class="pdf-rank-box">
+              <div class="score">${total}点</div>
+              <div class="rank">${rankInfo.rank} / ${escapeHtml(rankInfo.state)}</div>
+            </div>
+          </div>
+          ${infoGrid}
+          ${scoreTable}
+          ${renderCatTable(page1Cats)}
+          <div class="pdf-footer">${escapeHtml(getFileName())}</div>
+        </div>
+        <div class="pdf-page">
+          <div class="pdf-section-title">評価項目詳細</div>
+          ${renderCatTable(page2Cats)}
+          <div class="pdf-section-title">自由コメント</div>
+          <div class="pdf-note-box">${escapeHtml(state.meta.freeComment?.trim() || 'コメント未入力')}</div>
+          <div class="pdf-section-title">次月の課題</div>
+          <div class="pdf-note-box">${escapeHtml(state.meta.nextTask?.trim() || '未入力')}</div>
+          <div class="pdf-footer">${escapeHtml(getFileName())}</div>
+        </div>`;
+    }
+
+    async function createPdfAndPrepareShare() {
+      hideMessages();
+      const missing = getRequiredMissing();
+      if (missing.length) {
+        els.warningBox.classList.add('show');
+        els.warningBox.textContent = `未入力または未選択の項目があるため、確認のうえPDF化してください。未完了件数: ${missing.length}`;
+      }
+      const createBtn = document.getElementById('createPdfBtn');
+      createBtn.disabled = true;
+      createBtn.textContent = 'PDF作成中...';
+      try {
+        if (!(window.html2canvas && window.jspdf && window.jspdf.jsPDF)) {
+          throw new Error('PDF生成ライブラリの読み込みに失敗しました。通信環境をご確認ください。');
+        }
+        state.pdfFileName = getFileName();
+        els.pdfPages.innerHTML = buildPdfHtml();
+        const pageEls = Array.from(els.pdfPages.querySelectorAll('.pdf-page'));
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        for (let i = 0; i < pageEls.length; i++) {
+          const canvas = await html2canvas(pageEls[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const pdfWidth = 210;
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          if (i > 0) pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        }
+        state.pdfBlob = pdf.output('blob');
+        document.title = state.pdfFileName.replace(/\.pdf$/,'');
+        document.getElementById('shareActions').classList.remove('hidden');
+        els.successBox.classList.add('show');
+        els.successBox.textContent = `PDFを作成しました。ファイル名: ${state.pdfFileName}`;
+      } catch (error) {
+        els.warningBox.classList.add('show');
+        els.warningBox.textContent = error.message || 'PDF作成に失敗しました。';
+      } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'PDFを作成する';
+      }
+    }
+
+    function downloadPdf() {
+      if (!state.pdfBlob) {
+        els.warningBox.classList.add('show');
+        els.warningBox.textContent = '先にPDFを作成してください。';
+        return;
+      }
+      const url = URL.createObjectURL(state.pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = state.pdfFileName || getFileName();
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function sharePdf() {
+      if (!state.pdfBlob) {
+        els.warningBox.classList.add('show');
+        els.warningBox.textContent = '先にPDFを作成してください。';
+        return;
+      }
+      const fileName = state.pdfFileName || getFileName();
+      const file = new File([state.pdfBlob], fileName, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'CESスキル評価シート',
+            text: '作成したPDFをLINE WORKSで送付してください。',
+            files: [file]
+          });
+        } catch (e) {}
+      } else {
+        downloadPdf();
+        els.successBox.classList.add('show');
+        els.successBox.textContent = 'この端末では直接共有に対応していないため、PDFを保存してから共有してください。';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function stripHtml(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      return div.textContent || div.innerText || '';
+    }
+
+    init();
+  </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
