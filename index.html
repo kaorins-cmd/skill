@@ -759,14 +759,13 @@
       const total = categories.reduce((acc, cat) => acc + calcCategoryScore(cat), 0);
       const rankInfo = getRank(total);
       const categoryScores = categories.map(cat => ({ id: cat.id, title: cat.title, score: calcCategoryScore(cat), max: cat.max }));
-      const page1Cats = ['A','B','C'];
-      const page2Cats = ['D','E'];
+      const page1Cats = ['A','B'];
+      const page2Cats = ['C','D','E'];
       const infoGrid = `
         <div class="pdf-grid">
           <div class="pdf-info"><div class="label">評価月</div><div class="value">${escapeHtml(formatMonth(state.meta.evalMonth) || '-')}</div></div>
           <div class="pdf-info"><div class="label">店舗名</div><div class="value">${escapeHtml(state.meta.storeName || '-')}</div></div>
           <div class="pdf-info"><div class="label">スタッフ名</div><div class="value">${escapeHtml(state.meta.staffName || '-')}</div></div>
-          <div class="pdf-info"><div class="label">評価者名</div><div class="value">不要設定</div></div>
           <div class="pdf-info"><div class="label">作成日</div><div class="value">${escapeHtml(formatDate())}</div></div>
           <div class="pdf-info"><div class="label">前回比較</div><div class="value">${stripHtml(buildCompareText(total, rankInfo.rank))}</div></div>
         </div>`;
@@ -845,10 +844,17 @@
         for (let i = 0; i < pageEls.length; i++) {
           const canvas = await html2canvas(pageEls[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
           const imgData = canvas.toDataURL('image/jpeg', 0.95);
-          const pdfWidth = 210;
-          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          const maxWidth = 210;
+          const maxHeight = 297;
+          let renderWidth = maxWidth;
+          let renderHeight = (canvas.height * renderWidth) / canvas.width;
+          if (renderHeight > maxHeight) {
+            renderHeight = maxHeight;
+            renderWidth = (canvas.width * renderHeight) / canvas.height;
+          }
+          const offsetX = (maxWidth - renderWidth) / 2;
           if (i > 0) pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+          pdf.addImage(imgData, 'JPEG', offsetX, 0, renderWidth, renderHeight);
         }
         state.pdfBlob = pdf.output('blob');
         document.title = state.pdfFileName.replace(/\.pdf$/,'');
@@ -913,6 +919,5 @@
 
     init();
   </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
